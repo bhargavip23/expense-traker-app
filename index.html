@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker</title>
+    <script src="https://cdn.tailwindcss.com">
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('service-worker.js');
+        }
+        </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 30px,
+                    rgba(0, 0, 0, 0.03) 30px,
+                    rgba(0, 0, 0, 0.03) 31px
+                ),
+                linear-gradient(135deg, #f0f4f8 0%, #e6edf3 100%);
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .handwriting {
+            font-family: 'Caveat', cursive;
+        }
+        
+        /* Header */
+        .app-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .app-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-note {
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.05),
+                0 8px 16px rgba(0, 0, 0, 0.08);
+            transform: rotate(-0.5deg);
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .stat-note:nth-child(2) { transform: rotate(0.5deg); }
+        .stat-note:nth-child(3) { transform: rotate(-0.8deg); }
+        
+        .stat-note:hover {
+            transform: rotate(0deg) translateY(-4px);
+            box-shadow: 
+                0 4px 8px rgba(0, 0, 0, 0.08),
+                0 12px 24px rgba(0, 0, 0, 0.12);
+        }
+        
+        .stat-note::before {
+            content: '';
+            position: absolute;
+            top: 0.75rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 4px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(0, 0, 0, 0.1) 20%, 
+                rgba(0, 0, 0, 0.1) 80%, 
+                transparent 100%
+            );
+            border-radius: 2px;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #1e293b;
+        }
+
+        /* Negative balance shown in red */
+        .stat-value.negative {
+            color: #dc2626;
+        }
+        
+        .stat-note.balance {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+        
+        .stat-note.income {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        }
+        
+        .stat-note.income .stat-value {
+            color: #92400e;
+        }
+        
+        .stat-note.expense {
+            background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+        }
+        
+        .stat-note.expense .stat-value {
+            color: #9f1239;
+        }
+        
+        /* Form Note */
+        .form-note {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.05),
+                0 8px 16px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+            transform: rotate(-0.3deg);
+            position: relative;
+        }
+        
+        .form-note::before {
+            content: '';
+            position: absolute;
+            top: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 5px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(0, 0, 0, 0.15) 20%, 
+                rgba(0, 0, 0, 0.15) 80%, 
+                transparent 100%
+            );
+            border-radius: 3px;
+        }
+        
+        .form-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: #1e293b;
+            text-align: center;
+        }
+        
+        .form-grid {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        @media (min-width: 640px) {
+            .form-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .form-grid .full-width {
+                grid-column: 1 / -1;
+            }
+        }
+        
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.5rem;
+        }
+        
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: 'Nunito', sans-serif;
+            transition: all 0.2s;
+            background: #f8fafc;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .add-button {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .add-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+        }
+        
+        .add-button:active {
+            transform: translateY(0);
+        }
+        
+        /* Transactions Grid */
+        .section-header {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        .transactions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            padding-bottom: 2rem;
+        }
+        
+        .transaction-note {
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.05),
+                0 8px 16px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .transaction-note:nth-child(odd)  { transform: rotate(-0.5deg); }
+        .transaction-note:nth-child(even) { transform: rotate(0.5deg); }
+        .transaction-note:nth-child(3n)   { transform: rotate(-0.8deg); }
+        
+        .transaction-note:hover {
+            transform: rotate(0deg) translateY(-4px) scale(1.02);
+            box-shadow: 
+                0 4px 8px rgba(0, 0, 0, 0.08),
+                0 16px 32px rgba(0, 0, 0, 0.12);
+            z-index: 10;
+        }
+        
+        .transaction-note.income-note {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .transaction-note.expense-note {
+            background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+            border-left: 4px solid #ec4899;
+        }
+        
+        .transaction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .transaction-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        
+        .transaction-amount {
+            font-size: 1.75rem;
+            font-weight: 800;
+            font-family: 'Caveat', cursive;
+        }
+        
+        .income-note .transaction-amount  { color: #92400e; }
+        .expense-note .transaction-amount { color: #9f1239; }
+        
+        .transaction-category {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            align-self: flex-start;
+        }
+        
+        .transaction-note-text {
+            font-size: 0.875rem;
+            color: #475569;
+            margin-bottom: 0.75rem;
+            line-height: 1.5;
+        }
+        
+        .transaction-date {
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        /* Delete button */
+        .delete-btn {
+            background: rgba(255, 255, 255, 0.5);
+            border: 1.5px solid rgba(0, 0, 0, 0.12);
+            border-radius: 6px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .delete-btn:hover {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            color: #dc2626;
+            transform: scale(1.1);
+        }
+
+        .delete-btn:active {
+            transform: scale(0.95);
+        }
+        
+        /* Pin effect */
+        .transaction-note::before {
+            content: '';
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 12px;
+            height: 12px;
+            background: radial-gradient(circle, #cbd5e1 0%, #94a3b8 100%);
+            border-radius: 50%;
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.2),
+                inset 0 1px 2px rgba(255, 255, 255, 0.5);
+        }
+        
+        .transaction-note::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            background: #64748b;
+            border-radius: 50%;
+        }
+
+        /* Fade out animation on delete */
+        .transaction-note.removing {
+            animation: fadeOut 0.25s ease forwards;
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: scale(0.9) rotate(0deg);
+            }
+        }
+        
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #94a3b8;
+        }
+        
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        /* Mobile adjustments */
+        @media (max-width: 640px) {
+            .transactions-grid { grid-template-columns: 1fr; }
+            .app-title { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1 class="app-title handwriting">💰 My Expenses</h1>
+            <p style="color: #64748b; font-weight: 600;">Pin your spending, track your goals</p>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-note balance">
+                <div class="stat-label">Total Balance</div>
+                <div class="stat-value" id="stat-balance">₹0.00</div>
+            </div>
+            <div class="stat-note income">
+                <div class="stat-label">Income</div>
+                <div class="stat-value" id="stat-income">₹0.00</div>
+            </div>
+            <div class="stat-note expense">
+                <div class="stat-label">Expenses</div>
+                <div class="stat-value" id="stat-expense">₹0.00</div>
+            </div>
+        </div>
+
+        <!-- Add Transaction Form -->
+        <div class="form-note">
+            <h2 class="form-title handwriting">📝 Add New Transaction</h2>
+            
+            <form id="transaction-form">
+                <div class="form-grid">
+                    <div>
+                        <label for="amount">Amount *</label>
+                        <input 
+                            type="number" 
+                            id="amount" 
+                            name="amount" 
+                            placeholder="+100 or -50"
+                            step="0.01"
+                            required
+                        >
+                    </div>
+
+                    <div>
+                        <label for="category">Category</label>
+                        <input 
+                            type="text" 
+                            id="category" 
+                            name="category" 
+                            placeholder="e.g., Food, Salary"
+                        >
+                    </div>
+
+                    <div>
+                        <label for="date">Date</label>
+                        <input 
+                            type="date" 
+                            id="date" 
+                            name="date"
+                        >
+                    </div>
+
+                    <div>
+                        <label for="note">Note</label>
+                        <input 
+                            type="text" 
+                            id="note" 
+                            name="note" 
+                            placeholder="Quick note..."
+                        >
+                    </div>
+
+                    <div class="full-width">
+                        <button type="submit" class="add-button" id="add-btn">
+                            + Add to Board
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Transactions Grid -->
+        <div>
+            <h2 class="section-header handwriting">📌 Pinned Transactions</h2>
+            <div class="transactions-grid" id="transactions-grid">
+                <!-- Rendered by JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== DATA MANAGEMENT =====
+
+        function getTransactions() {
+            const data = localStorage.getItem('transactions');
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveTransactions(transactions) {
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+        }
+
+        function addTransaction(amount, category, date, note) {
+            const transactions = getTransactions();
+            const transaction = {
+                id: Date.now(),
+                amount: parseFloat(amount),
+                category: category || 'Uncategorized',
+                date: date || getTodayDate(),
+                note: note || ''
+            };
+            transactions.unshift(transaction);
+            saveTransactions(transactions);
+            return transaction;
+        }
+
+        function deleteTransaction(id) {
+            const transactions = getTransactions().filter(t => t.id !== id);
+            saveTransactions(transactions);
+        }
+
+        function getTodayDate() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day   = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // ===== CALCULATIONS =====
+
+        function calculateTotals() {
+            const transactions = getTransactions();
+            let totalIncome = 0;
+            let totalExpense = 0;
+
+            transactions.forEach(t => {
+                if (t.amount > 0) totalIncome  += t.amount;
+                else              totalExpense += Math.abs(t.amount);
+            });
+
+            return {
+                totalBalance: totalIncome - totalExpense,
+                totalIncome,
+                totalExpense
+            };
+        }
+
+        // ===== UI UPDATES =====
+
+        function updateStats() {
+            const { totalBalance, totalIncome, totalExpense } = calculateTotals();
+
+            const balanceEl = document.getElementById('stat-balance');
+            balanceEl.textContent = `₹${totalBalance.toFixed(2)}`;
+
+            // Show negative balance in red
+            if (totalBalance < 0) {
+                balanceEl.classList.add('negative');
+            } else {
+                balanceEl.classList.remove('negative');
+            }
+
+            document.getElementById('stat-income').textContent  = `₹${totalIncome.toFixed(2)}`;
+            document.getElementById('stat-expense').textContent = `₹${totalExpense.toFixed(2)}`;
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString + 'T00:00:00');
+            const months = ['Jan','Feb','Mar','Apr','May','Jun',
+                            'Jul','Aug','Sep','Oct','Nov','Dec'];
+            return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+        }
+
+        function renderTransactions() {
+            const transactions = getTransactions();
+            const grid = document.getElementById('transactions-grid');
+            grid.innerHTML = '';
+
+            if (transactions.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <div class="empty-state-icon">📭</div>
+                        <p style="font-weight: 600; margin-bottom: 0.5rem;">No transactions yet</p>
+                        <p style="font-size: 0.875rem;">Start pinning your expenses above!</p>
+                    </div>`;
+                return;
+            }
+
+            transactions.forEach(transaction => {
+                const isIncome    = transaction.amount > 0;
+                const noteClass   = isIncome ? 'income-note' : 'expense-note';
+                const amountSign  = isIncome ? '+' : '-';
+                const displayAmt  = Math.abs(transaction.amount).toFixed(2);
+
+                const card = document.createElement('div');
+                card.className = `transaction-note ${noteClass}`;
+                card.dataset.id = transaction.id;
+
+                card.innerHTML = `
+                    <div class="transaction-header">
+                        <div class="transaction-header-left">
+                            <div class="transaction-amount handwriting">${amountSign}₹${displayAmt}</div>
+                            <span class="transaction-category">${transaction.category}</span>
+                        </div>
+                        <button class="delete-btn" title="Delete transaction" aria-label="Delete transaction">✕</button>
+                    </div>
+                    <div class="transaction-note-text">${transaction.note || 'No notes added'}</div>
+                    <div class="transaction-date">📅 ${formatDate(transaction.date)}</div>
+                `;
+
+                // Delete handler with animation
+                card.querySelector('.delete-btn').addEventListener('click', () => {
+                    card.classList.add('removing');
+                    card.addEventListener('animationend', () => {
+                        deleteTransaction(transaction.id);
+                        updateStats();
+                        renderTransactions();
+                    }, { once: true });
+                });
+
+                grid.appendChild(card);
+            });
+        }
+
+        // ===== FORM HANDLING =====
+
+        function handleFormSubmit(event) {
+            event.preventDefault();
+
+            const amount   = document.getElementById('amount').value;
+            const category = document.getElementById('category').value;
+            const date     = document.getElementById('date').value;
+            const note     = document.getElementById('note').value;
+
+            if (!amount || amount === '0') {
+                alert('Please enter a valid amount!');
+                return;
+            }
+
+            addTransaction(amount, category, date, note);
+            updateStats();
+            renderTransactions();
+
+            // Clear form
+            document.getElementById('amount').value   = '';
+            document.getElementById('category').value = '';
+            document.getElementById('date').value     = '';
+            document.getElementById('note').value     = '';
+
+            // Success feedback
+            const btn = document.getElementById('add-btn');
+            btn.textContent = '✓ Added!';
+            btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            setTimeout(() => {
+                btn.textContent = '+ Add to Board';
+                btn.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+            }, 1000);
+        }
+
+        // ===== INITIALIZATION =====
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('transaction-form').addEventListener('submit', handleFormSubmit);
+            updateStats();
+            renderTransactions();
+        });
+    </script>
+</body>
+</html>
